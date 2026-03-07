@@ -55,7 +55,7 @@ def download_audio():
               "--no-playlist",
               "-x",
               "--audio-format", "mp3",
-              "--postprocessor-args", "ffmpeg:-t 210 -b:a 8k -ac 1",
+              "--postprocessor-args", "ffmpeg:-t 210 -b:a 16k -ac 1 -ar 16000",
               "--match-filter", "duration<600",
               "--no-warnings",
               "--no-check-certificates",
