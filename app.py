@@ -122,11 +122,11 @@ def stream_audio():
         result = subprocess.run(
             [
                 "yt-dlp",
-                "-f", "bestaudio[filesize<15M]/bestaudio",
+                "-f", "bestaudio",
                 "--no-playlist",
                 "-x",
                 "--audio-format", "mp3",
-                "--postprocessor-args", "ffmpeg:-t 300 -b:a 8k -ac 1 -ar 8000",
+                "--postprocessor-args", "ffmpeg:-t 54000 -b:a 8k -ac 1 -ar 8000",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
