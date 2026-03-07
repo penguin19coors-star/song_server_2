@@ -74,7 +74,7 @@ def download_audio():
             ],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=60,
         )
 
         actual_file = None
