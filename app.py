@@ -74,7 +74,7 @@ def download_audio():
             ],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=60,
         )
 
         actual_file = None
@@ -126,7 +126,7 @@ def stream_audio():
                 "--no-playlist",
                 "-x",
                 "--audio-format", "mp3",
-                "--postprocessor-args", "ffmpeg:-t 540 -b:a 8k -ac 1 -ar 8000",
+                "--postprocessor-args", "ffmpeg:-t 300 -b:a 8k -ac 1 -ar 8000",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
