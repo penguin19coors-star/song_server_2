@@ -27,6 +27,13 @@ def cleanup_old_files():
 threading.Thread(target=cleanup_old_files, daemon=True).start()
 
 
+def make_safe_name(query):
+    """Turn a search query into a safe filename"""
+    safe = "".join(c if c.isalnum() or c in " -" else "" for c in query)
+    safe = safe[:50].strip().replace(" ", "_")
+    return safe
+
+
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "MP3 retrieval server is running!"})
@@ -45,25 +52,25 @@ def download_audio():
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
     file_id = str(uuid.uuid4())[:8]
-    safe_name = "".join(c if c.isalnum() or c in " -" else "" for c in query)[:50].strip().replace(" ", "_")
+    safe_name = make_safe_name(query)
     filename_base = f"{safe_name}_{file_id}"
     output_template = os.path.join(AUDIO_DIR, f"{filename_base}.%(ext)s")
 
     try:
         result = subprocess.run(
             [
-              "yt-dlp",
-              "-f", "bestaudio[filesize<15M]/bestaudio",
-              "--no-playlist",
-              "-x",
-              "--audio-format", "mp3",
-              "--postprocessor-args", "ffmpeg:-t 480 -b:a 8k -ac 1 -ar 8000",
-              "--match-filter", "duration<600",
-              "--no-warnings",
-              "--no-check-certificates",
-              "--extractor-args", "youtube:player_client=mediaconnect",
-              "-o", output_template,
-              f"ytsearch1:{query}",
+                "yt-dlp",
+                "-f", "bestaudio[filesize<15M]/bestaudio",
+                "--no-playlist",
+                "-x",
+                "--audio-format", "mp3",
+                "--postprocessor-args", "ffmpeg:-t 480 -b:a 8k -ac 1 -ar 8000",
+                "--match-filter", "duration<600",
+                "--no-warnings",
+                "--no-check-certificates",
+                "--extractor-args", "youtube:player_client=mediaconnect",
+                "-o", output_template,
+                f"ytsearch1:{query}",
             ],
             capture_output=True,
             text=True,
@@ -72,7 +79,7 @@ def download_audio():
 
         actual_file = None
         for f in os.listdir(AUDIO_DIR):
-            if f.startswith(file_id) and f.endswith(".mp3"):
+            if f.startswith(safe_name) and f.endswith(".mp3"):
                 actual_file = f
                 break
 
@@ -107,7 +114,9 @@ def stream_audio():
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
     file_id = str(uuid.uuid4())[:8]
-    output_template = os.path.join(AUDIO_DIR, f"{file_id}.%(ext)s")
+    safe_name = make_safe_name(query)
+    filename_base = f"{safe_name}_{file_id}"
+    output_template = os.path.join(AUDIO_DIR, f"{filename_base}.%(ext)s")
 
     try:
         result = subprocess.run(
@@ -117,11 +126,11 @@ def stream_audio():
                 "--no-playlist",
                 "-x",
                 "--audio-format", "mp3",
-                "--postprocessor-args", "ffmpeg:-b:a 8k -ac 1 -ar 22050",
-                "--download-sections", "*00:00:00-00:02:00",
+                "--postprocessor-args", "ffmpeg:-t 300 -b:a 8k -ac 1 -ar 8000",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
+                "--extractor-args", "youtube:player_client=mediaconnect",
                 "-o", output_template,
                 f"ytsearch1:{query}",
             ],
@@ -132,9 +141,9 @@ def stream_audio():
 
         actual_file = None
         for f in os.listdir(AUDIO_DIR):
-          if f.startswith(safe_name) and f.endswith(".mp3"):
-            actual_file = f
-            break
+            if f.startswith(safe_name) and f.endswith(".mp3"):
+                actual_file = os.path.join(AUDIO_DIR, f)
+                break
 
         if not actual_file or not os.path.exists(actual_file):
             return jsonify({
