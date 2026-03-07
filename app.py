@@ -60,7 +60,7 @@ def download_audio():
         result = subprocess.run(
             [
                 "yt-dlp",
-                "-f", "bestaudio",
+                "-f", "bestaudio[filesize<15M]/bestaudio",
                 "--no-playlist",
                 "-x",
                 "--audio-format", "mp3",
