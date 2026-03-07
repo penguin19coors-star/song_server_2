@@ -34,6 +34,65 @@ def make_safe_name(query):
     return safe
 
 
+def download_and_compress(query, safe_name, file_id, output_template, max_seconds="540"):
+    """Step 1: Download full audio. Step 2: Compress with ffmpeg."""
+
+    # Step 1: Download full audio (no compression, no trimming)
+    result = subprocess.run(
+        [
+            "yt-dlp",
+            "-f", "bestaudio",
+            "--no-playlist",
+            "-x",
+            "--audio-format", "mp3",
+            "--match-filter", "duration<600",
+            "--no-warnings",
+            "--no-check-certificates",
+            "--extractor-args", "youtube:player_client=mediaconnect",
+            "-o", output_template,
+            f"ytsearch1:{query}",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+
+    # Find the downloaded file
+    raw_file = None
+    for f in os.listdir(AUDIO_DIR):
+        if f.startswith(safe_name) and f.endswith(".mp3"):
+            raw_file = os.path.join(AUDIO_DIR, f)
+            break
+
+    if not raw_file or not os.path.exists(raw_file):
+        return None, result.stderr[-500:] if result.stderr else "no error output"
+
+    # Step 2: Compress with ffmpeg separately
+    compressed_file = raw_file.replace(".mp3", "_small.mp3")
+    compress_result = subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-i", raw_file,
+            "-t", max_seconds,
+            "-b:a", "8k",
+            "-ac", "1",
+            "-ar", "8000",
+            compressed_file,
+        ],
+        capture_output=True,
+        timeout=30,
+    )
+
+    # Remove the large original and rename compressed
+    if os.path.exists(compressed_file):
+        os.remove(raw_file)
+        os.rename(compressed_file, raw_file)
+        return raw_file, None
+    else:
+        # Compression failed, return original file as-is
+        return raw_file, None
+
+
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "MP3 retrieval server is running!"})
@@ -51,52 +110,30 @@ def download_audio():
     if not query:
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
+    max_seconds = request.args.get("sec", "540")
+
     file_id = str(uuid.uuid4())[:8]
     safe_name = make_safe_name(query)
     filename_base = f"{safe_name}_{file_id}"
     output_template = os.path.join(AUDIO_DIR, f"{filename_base}.%(ext)s")
 
     try:
-        result = subprocess.run(
-            [
-                "yt-dlp",
-                "-f", "bestaudio",
-                "--no-playlist",
-                "-x",
-                "--audio-format", "mp3",
-                "--postprocessor-args", "ffmpeg:-t 540 -b:a 8k -ac 1 -ar 8000",
-                "--match-filter", "duration<600",
-                "--no-warnings",
-                "--no-check-certificates",
-                "--extractor-args", "youtube:player_client=web,mediaconnect",
-                "-o", output_template,
-                f"ytsearch1:{query}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        filepath, error = download_and_compress(query, safe_name, file_id, output_template, max_seconds)
 
-        actual_file = None
-        for f in os.listdir(AUDIO_DIR):
-            if f.startswith(safe_name) and f.endswith(".mp3"):
-                actual_file = f
-                break
-
-        if not actual_file:
+        if not filepath:
             return jsonify({
                 "error": "Could not find or convert audio",
-                "stderr": result.stderr[-500:] if result.stderr else "no error output",
+                "stderr": error,
             }), 500
 
+        filename = os.path.basename(filepath)
         base_url = request.host_url.rstrip("/")
-        file_url = f"{base_url}/files/{actual_file}"
-        file_path = os.path.join(AUDIO_DIR, actual_file)
-        file_size = os.path.getsize(file_path)
+        file_url = f"{base_url}/files/{filename}"
+        file_size = os.path.getsize(filepath)
 
         return jsonify({
             "url": file_url,
-            "filename": actual_file,
+            "filename": filename,
             "size_bytes": file_size,
             "query": query,
             "expires_in": "30 minutes",
@@ -113,46 +150,23 @@ def stream_audio():
     if not query:
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
+    max_seconds = request.args.get("sec", "540")
+
     file_id = str(uuid.uuid4())[:8]
     safe_name = make_safe_name(query)
     filename_base = f"{safe_name}_{file_id}"
     output_template = os.path.join(AUDIO_DIR, f"{filename_base}.%(ext)s")
 
     try:
-        result = subprocess.run(
-            [
-                "yt-dlp",
-                "-f", "bestaudio",
-                "--no-playlist",
-                "-x",
-                "--audio-format", "mp3",
-                "--postprocessor-args", "ffmpeg_i:-t 540",
-                "--postprocessor-args", "ffmpeg:-b:a 8k -ac 1 -ar 8000",
-                "--match-filter", "duration<600",
-                "--no-warnings",
-                "--no-check-certificates",
-                "--extractor-args", "youtube:player_client=mediaconnect",
-                "-o", output_template,
-                f"ytsearch1:{query}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        filepath, error = download_and_compress(query, safe_name, file_id, output_template, max_seconds)
 
-        actual_file = None
-        for f in os.listdir(AUDIO_DIR):
-            if f.startswith(safe_name) and f.endswith(".mp3"):
-                actual_file = os.path.join(AUDIO_DIR, f)
-                break
-
-        if not actual_file or not os.path.exists(actual_file):
+        if not filepath:
             return jsonify({
                 "error": "Could not find or convert audio",
-                "stderr": result.stderr[-500:] if result.stderr else "no error output",
+                "stderr": error,
             }), 500
 
-        return send_file(actual_file, mimetype="audio/mpeg")
+        return send_file(filepath, mimetype="audio/mpeg")
 
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Download timed out"}), 504
