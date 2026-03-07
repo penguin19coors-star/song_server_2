@@ -55,11 +55,11 @@ def download_audio():
               "--no-playlist",
               "-x",
               "--audio-format", "mp3",
-              "--postprocessor-args", "ffmpeg:-b:a 32k -ac 1",
+              "--postprocessor-args", "ffmpeg:-t 210",
               "--match-filter", "duration<600",
               "--no-warnings",
               "--no-check-certificates",
-              "--extractor-args", "youtube:player_client=mediaconnect"
+              "--extractor-args", "youtube:player_client=mediaconnect",
               "-o", output_template,
               f"ytsearch1:{query}",
             ],
