@@ -45,7 +45,9 @@ def download_audio():
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
     file_id = str(uuid.uuid4())[:8]
-    output_template = os.path.join(AUDIO_DIR, f"{file_id}.%(ext)s")
+    safe_name = "".join(c if c.isalnum() or c in " -" else "" for c in query)[:50].strip().replace(" ", "_")
+    filename_base = f"{safe_name}_{file_id}"
+    output_template = os.path.join(AUDIO_DIR, f"{filename_base}.%(ext)s")
 
     try:
         result = subprocess.run(
@@ -130,9 +132,9 @@ def stream_audio():
 
         actual_file = None
         for f in os.listdir(AUDIO_DIR):
-            if f.startswith(file_id) and f.endswith(".mp3"):
-                actual_file = os.path.join(AUDIO_DIR, f)
-                break
+          if f.startswith(safe_name) and f.endswith(".mp3"):
+            actual_file = f
+            break
 
         if not actual_file or not os.path.exists(actual_file):
             return jsonify({
