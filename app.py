@@ -61,7 +61,7 @@ def download_audio():
                 "-x",
                 "--audio-format", "mp3",
                 "--postprocessor-args", "ExtractAudio:-b:a 8k -ac 1",
-                "--download-sections", "*0:00-4:00",
+                "--download-sections", "*0:00-3:30",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
