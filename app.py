@@ -44,10 +44,8 @@ def download_audio():
     if not query:
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
-    # Optional quality: low (default), medium, high
-    quality = request.args.get("quality", "low")
-    quality_map = {"low": "10", "medium": "5", "high": "0"}
-    audio_quality = quality_map.get(quality, "10")
+    # Optional max duration in seconds via ?sec=210 (default 210 = 3:30)
+    max_seconds = request.args.get("sec", "210")
 
     file_id = str(uuid.uuid4())[:8]
     output_template = os.path.join(AUDIO_DIR, f"{file_id}.%(ext)s")
@@ -61,7 +59,7 @@ def download_audio():
                 "-x",
                 "--audio-format", "mp3",
                 "--postprocessor-args", "ExtractAudio:-b:a 8k -ac 1",
-                "--download-sections", "*0:00-3:30",
+                "--download-sections", f"*0:00-0:{max_seconds}",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
@@ -95,7 +93,6 @@ def download_audio():
             "filename": actual_file,
             "size_bytes": file_size,
             "query": query,
-            "quality": quality,
             "expires_in": "30 minutes",
         })
 
@@ -110,6 +107,8 @@ def stream_audio():
     if not query:
         return jsonify({"error": "No query provided. Use ?q=song+name"}), 400
 
+    max_seconds = request.args.get("sec", "210")
+
     file_id = str(uuid.uuid4())[:8]
     output_template = os.path.join(AUDIO_DIR, f"{file_id}.%(ext)s")
 
@@ -121,7 +120,8 @@ def stream_audio():
                 "--no-playlist",
                 "-x",
                 "--audio-format", "mp3",
-                "--audio-quality", "10",
+                "--postprocessor-args", "ExtractAudio:-b:a 8k -ac 1",
+                "--download-sections", f"*0:00-0:{max_seconds}",
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
@@ -154,7 +154,6 @@ def stream_audio():
 @app.route("/files/<filename>", methods=["GET"])
 def serve_file(filename):
     """Serves a stored MP3 file directly by filename"""
-    # Security: prevent directory traversal
     if "/" in filename or ".." in filename:
         return jsonify({"error": "Invalid filename"}), 400
 
