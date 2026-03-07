@@ -68,7 +68,7 @@ def download_audio():
                 "--match-filter", "duration<600",
                 "--no-warnings",
                 "--no-check-certificates",
-                "--extractor-args", "youtube:player_client=mediaconnect",
+                "--extractor-args", "youtube:player_client=android",
                 "-o", output_template,
                 f"ytsearch1:{query}",
             ],
