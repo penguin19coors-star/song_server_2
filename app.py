@@ -74,7 +74,7 @@ def download_and_compress(query, safe_name, file_id, output_template, max_second
             "ffmpeg", "-y",
             "-i", raw_file,
             "-t", max_seconds,
-            "-b:a", "16k",
+            "-b:a", "8k",
             "-ac", "1",
             "-ar", "8000",
             compressed_file,
