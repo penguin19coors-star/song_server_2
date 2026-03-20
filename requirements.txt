@@ -1,4 +1,0 @@
-flask
-gunicorn
-gevent
-yt-dlp>=2025.1.0
